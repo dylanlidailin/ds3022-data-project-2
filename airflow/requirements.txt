@@ -1,0 +1,9 @@
+boto3
+polars
+requests
+seaborn
+duckdb
+httpx
+pandas
+redis<5.0
+structlog<24
