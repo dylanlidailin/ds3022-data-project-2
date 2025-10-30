@@ -12,8 +12,8 @@ AWS_REGION = "us-east-1"
 TARGET_MESSAGE_COUNT = 21
 SUBMISSION_URL = "https://sqs.us-east-1.amazonaws.com/440848399208/dp2-submit"
 
-# Create a logger compliant with the rubric
-log = LoggingMixin().log  # <-- ADDED
+# Create a logger
+log = LoggingMixin().log
 
 # DAG Definition
 @dag(
@@ -175,7 +175,7 @@ def data_puzzle_dag():
             log.error(f"Task 3: Failed to submit solution: {e}")
             raise
 
-    # --- Define Task Dependencies (The "Flow") ---
+    # Define task dependencies
     sqs_url = populate_queue(uva_id=UVA_ID)
     collected_data = collect_messages(sqs_url)
     final_phrase = reassemble_phrase(collected_data)
@@ -184,5 +184,4 @@ def data_puzzle_dag():
         phrase=final_phrase
     )
 
-# --- Instantiate the DAG ---
 data_puzzle_dag()

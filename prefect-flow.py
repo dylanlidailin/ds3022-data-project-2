@@ -30,7 +30,7 @@ def populate_queue(uva_id: str) -> str:
     
     try:
         response = requests.post(url)
-        response.raise_for_status()  # Raise an error for bad responses
+        response.raise_for_status()
         payload = response.json()
         
         if 'sqs_url' in payload:
@@ -60,7 +60,7 @@ def collect_messages(queue_url: str) -> List[Tuple[int, str]]:
 
     collected_data = []
 
-    # Loop until we have collected the target number of messages
+    # Loop until we have collected 21 messages
     while len(collected_data) < TARGET_MESSAGE_COUNT:
         try:
             # Use long-polling to wait for messages
@@ -71,9 +71,9 @@ def collect_messages(queue_url: str) -> List[Tuple[int, str]]:
             
             response = sqs_client.receive_message(
                 QueueUrl=queue_url,
-                MaxNumberOfMessages=10,  # Get up to 10 at a time
-                WaitTimeSeconds=20,      # Long polling
-                MessageAttributeNames=['order_no', 'word'] # CRITICAL: Must request attributes
+                MaxNumberOfMessages=10,
+                WaitTimeSeconds=20, # Creative way to check regularly for new messages
+                MessageAttributeNames=['order_no', 'word'] # Request specific attributes
             )
 
             if 'Messages' in response:
@@ -99,21 +99,20 @@ def collect_messages(queue_url: str) -> List[Tuple[int, str]]:
                     
                     if len(collected_data) == TARGET_MESSAGE_COUNT:
                         logger.info("Task 2: All messages collected!")
-                        break # Exit inner loop
+                        break # Exit for-loop
             
             else:
-                # No messages returned, just loop again (messages are likely delayed)
+                # No messages returned, just loop again
                 logger.info("Task 2:   -> No new messages. Will poll again.")
 
         except Exception as e:
             logger.error(f"Task 2: Error during collection loop: {e}", exc_info=True)
-            # Wait before retrying to avoid spamming on error
             time.sleep(10)
             
     logger.info("Task 2: Collection complete.")
     return collected_data
 
-# --- Task 3: Reassemble and Submit ------------------------------------
+# Task 3
 
 @task
 def reassemble_phrase(data: List[Tuple[int, str]]) -> str:
@@ -123,13 +122,13 @@ def reassemble_phrase(data: List[Tuple[int, str]]) -> str:
     logger = get_run_logger()
     logger.info("Task 3: Reassembling phrase...")
     
-    # Sort the list of tuples based on the first item (order_no)
+    # Sort the list of tuples based on the order number
     data.sort(key=lambda x: x[0])
     
     # Extract just the words in the correct order
     words = [item[1] for item in data]
     
-    # Join the words with a space
+    # Join the words with a space in between
     final_phrase = " ".join(words)
     
     logger.info(f"Task 3: Assembled phrase: {final_phrase}")
@@ -148,7 +147,6 @@ def submit_solution(uva_id: str, phrase: str, platform: str = "prefect") -> str:
     try:
         response = sqs_client.send_message(
             QueueUrl=SUBMISSION_URL,
-            # MessageBody is required but can be anything
             MessageBody=f"Submission from {uva_id}", 
             MessageAttributes={
                 'uvaid': {
@@ -174,7 +172,7 @@ def submit_solution(uva_id: str, phrase: str, platform: str = "prefect") -> str:
         logger.error(f"Task 3: Failed to submit solution: {e}")
         raise
 
-# --- Main Flow --------------------------------------------------------
+# Flow
 
 @flow(name="Data Project 2 - SQS Puzzle")
 def data_puzzle_flow(uva_id: str = UVA_ID):
@@ -206,8 +204,6 @@ def data_puzzle_flow(uva_id: str = UVA_ID):
     logger.info(f"--- Flow Complete ---")
     logger.info(f"Final Phrase: {final_phrase}")
     logger.info(f"Submission ID: {submission_id}")
-
-# --- Run the Flow -----------------------------------------------------
 
 if __name__ == "__main__":
     data_puzzle_flow(UVA_ID)
